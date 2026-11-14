@@ -51,7 +51,10 @@ def process_health_status(astronaut_id, health_status):
             ),
             "recommended_action": result.get(
                 "recommended_action",
-                "Review the latest readings."
+                "; ".join(result.get(
+                "recommended_actions",
+                ["Review the latest readings."]
+                ))
             ),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }

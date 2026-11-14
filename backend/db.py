@@ -12,6 +12,8 @@ import sqlite3
 
 from contextlib import contextmanager
 
+# from backend.alerts import process_health_status
+from backend.detection import evaluate_reading
 from config import DATABASE_PATH
 
 @contextmanager
@@ -115,6 +117,21 @@ def init_db():
         """)
 
 def insert_reading(reading):
+    
+    # Save the health reading
+    insert_reading(reading)
+
+    # Evaluate all health indicators
+    health_status = evaluate_reading(reading)
+
+    # Generate alerts based on detected health status
+    process_health_status(
+        reading["astronaut_id"],
+        health_status
+    )
+
+    return reading
+    
     """
     Save one astronaut reading.
     """

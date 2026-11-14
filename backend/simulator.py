@@ -28,6 +28,8 @@ from db import (
     insert_reading,
     init_db
 )
+from detection import evaluate_reading
+from alerts import process_health_status
 
 class HealthSimulator:
 
