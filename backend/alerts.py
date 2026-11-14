@@ -1,7 +1,7 @@
 
 from datetime import datetime, timezone
 
-from db import create_alert, get_alerts
+from backend.db import create_alert, get_alerts
 
 
 # Prevent repeated alerts for the same astronaut and indicator.

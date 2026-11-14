@@ -13,8 +13,8 @@ import sqlite3
 from contextlib import contextmanager
 
 # from backend.alerts import process_health_status
-from backend.detection import evaluate_reading
-from config import DATABASE_PATH
+# from backend.detection import evaluate_reading
+from backend.config import DATABASE_PATH
 
 @contextmanager
 def get_connection():
@@ -117,30 +117,13 @@ def init_db():
         """)
 
 def insert_reading(reading):
-    
-    # Save the health reading
-    insert_reading(reading)
-
-    # Evaluate all health indicators
-    health_status = evaluate_reading(reading)
-
-    # Generate alerts based on detected health status
-    process_health_status(
-        reading["astronaut_id"],
-        health_status
-    )
-
-    return reading
-    
     """
     Save one astronaut reading.
     """
 
     with get_connection() as conn:
-
         conn.execute("""
             INSERT INTO readings (
-
                 astronaut_id,
                 timestamp,
                 heart_rate,
@@ -154,11 +137,9 @@ def insert_reading(reading):
                 stress,
                 scenario,
                 data_source
-
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-
             reading["astronaut_id"],
             reading["timestamp"],
             reading["heart_rate"],
@@ -172,7 +153,6 @@ def insert_reading(reading):
             reading["stress"],
             reading["scenario"],
             "SIMULATED"
-
         ))
 
 def get_latest_reading(astronaut_id):

@@ -12,12 +12,7 @@ This is a transparent, rule-based system.
 
 import math
 
-from config import (
-    STATUS_THRESHOLDS,
-    STATUS_PRIORITY,
-    OVERALL_STATUS,
-    DISCLAIMER
-)
+from backend.config import STATUS_THRESHOLDS, STATUS_PRIORITY, OVERALL_STATUS
 
 
 # --------------------------------------------------

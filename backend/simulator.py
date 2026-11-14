@@ -18,18 +18,10 @@ import time
 
 from datetime import datetime, timezone
 
-from config import (
-    ASTRONAUTS,
-    SCENARIO_TARGETS,
-    SIMULATION_INTERVAL
-)
-
-from db import (
-    insert_reading,
-    init_db
-)
-from detection import evaluate_reading
-from alerts import process_health_status
+from backend.config import ASTRONAUTS, SCENARIO_TARGETS, SIMULATION_INTERVAL
+from backend.db import insert_reading, init_db
+from backend.detection import evaluate_reading
+from backend.alerts import process_health_status
 
 class HealthSimulator:
 

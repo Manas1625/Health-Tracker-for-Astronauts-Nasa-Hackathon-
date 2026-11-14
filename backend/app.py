@@ -13,17 +13,19 @@ from flask import Flask, jsonify, request
 
 from flask_cors import CORS
 
-from config import (
+from backend.config import (
     ASTRONAUTS,
     DISCLAIMER
 )
 
-from db import (
+from backend.db import (
     get_latest_reading,
-    get_reading_count
+    get_reading_count,
+    acknowledge_alert
 )
 
-from simulator import simulator
+from backend.alerts import list_alerts
+from backend.simulator import simulator
 
 app = Flask(__name__)
 
@@ -183,6 +185,70 @@ def change_scenario():
 
         "disclaimer": DISCLAIMER
 
+    }), 200
+    
+# --------------------------------------------------
+# ALERTS
+# --------------------------------------------------
+
+@app.route("/api/alerts", methods=["GET"])
+def get_alerts_route():
+
+    astronaut_id = request.args.get("astronaut")
+
+    if astronaut_id and astronaut_id not in ASTRONAUTS:
+        return jsonify({
+            "success": False,
+            "error": "Unknown astronaut ID."
+        }), 404
+
+    unacknowledged_only = (
+        request.args.get("unacknowledged_only", "false").lower()
+        == "true"
+    )
+
+    try:
+        limit = int(request.args.get("limit", 100))
+    except ValueError:
+        return jsonify({
+            "success": False,
+            "error": "Limit must be a number."
+        }), 400
+
+    if not 1 <= limit <= 500:
+        return jsonify({
+            "success": False,
+            "error": "Limit must be between 1 and 500."
+        }), 400
+
+    alerts = list_alerts(
+        astronaut_id=astronaut_id,
+        limit=limit,
+        unacknowledged_only=unacknowledged_only
+    )
+
+    return jsonify({
+        "success": True,
+        "count": len(alerts),
+        "data": alerts,
+        "disclaimer": DISCLAIMER
+    }), 200
+    
+@app.route("/api/alerts/<int:alert_id>/acknowledge", methods=["POST"])
+def acknowledge_alert_route(alert_id):
+
+    success = acknowledge_alert(alert_id)
+
+    if not success:
+        return jsonify({
+            "success": False,
+            "error": "Alert not found."
+        }), 404
+
+    return jsonify({
+        "success": True,
+        "message": "Alert acknowledged.",
+        "alert_id": alert_id
     }), 200
 
 # --------------------------------------------------
