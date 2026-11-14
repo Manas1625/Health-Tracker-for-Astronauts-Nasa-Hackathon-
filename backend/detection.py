@@ -12,7 +12,8 @@ This is a transparent, rule-based system.
 
 import math
 
-from backend.config import STATUS_THRESHOLDS, STATUS_PRIORITY, OVERALL_STATUS
+from backend.config import STATUS_THRESHOLDS, STATUS_PRIORITY, OVERALL_STATUS,DISCLAIMER
+from statistics import mean, stdev
 
 
 # --------------------------------------------------
@@ -354,3 +355,85 @@ def evaluate_crew(latest_readings):
         crew_results.append(result)
 
     return crew_results
+
+# --------------------------------------------------
+# RADIATION ANOMALY DETECTION
+# --------------------------------------------------
+
+def detect_radiation_anomaly(reading, historical_readings):
+    """
+    Compare a radiation reading against historical readings
+    from the same instrument.
+
+    Uses a 3-standard-deviation statistical baseline.
+    This detects unusual values, not medical danger.
+    """
+
+    instrument_id = reading.get("instrument_id")
+    current_value = reading.get("absorbed_dose_rate")
+
+    if current_value is None:
+        raise ValueError("Absorbed dose rate is missing.")
+
+    current_value = validate_number(current_value)
+
+    if current_value < 0:
+        raise ValueError("Absorbed dose rate cannot be negative.")
+
+    baseline = []
+
+    for record in historical_readings:
+
+        # Exclude the current reading from its own baseline.
+        if record.get("id") == reading.get("id"):
+            continue
+
+        if record.get("instrument_id") != instrument_id:
+            continue
+
+        value = record.get("absorbed_dose_rate")
+
+        if value is None:
+            continue
+
+        value = validate_number(value)
+
+        if value >= 0:
+            baseline.append(value)
+
+    if len(baseline) < 2:
+        return {
+            "instrument_id": instrument_id,
+            "current_value": current_value,
+            "status": "INSUFFICIENT_BASELINE",
+            "message": "Not enough historical readings for anomaly detection.",
+            "baseline_count": len(baseline),
+            "data_source": "NASA OSDR RadLab"
+        }
+
+    baseline_mean = mean(baseline)
+    baseline_std = stdev(baseline)
+
+    if baseline_std == 0:
+        anomaly = current_value != baseline_mean
+    else:
+        anomaly = abs(current_value - baseline_mean) > 3 * baseline_std
+
+    return {
+        "instrument_id": instrument_id,
+        "current_value": current_value,
+        "baseline_mean": baseline_mean,
+        "baseline_std": baseline_std,
+        "status": (
+            "ANOMALY_DETECTED"
+            if anomaly
+            else "NORMAL"
+        ),
+        "baseline_count": len(baseline),
+        "method": "3_STANDARD_DEVIATIONS",
+        "data_source": "NASA OSDR RadLab",
+        "disclaimer": (
+            "Statistical anomaly detection only. "
+            "Not a medical or radiation safety assessment."
+        )
+    }
