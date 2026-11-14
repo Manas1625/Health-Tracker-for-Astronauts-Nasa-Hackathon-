@@ -1,0 +1,72 @@
+
+:root {
+
+    /* BACKGROUNDS */
+
+    --bg-main: #07111f;
+    --bg-secondary: #0a1728;
+    --bg-panel: #0d1c30;
+    --bg-card: rgba(16, 34, 55, 0.82);
+    --bg-hover: #142b43;
+
+    /* BORDERS */
+
+    --border: rgba(130, 180, 220, 0.13);
+    --border-active: rgba(43, 207, 231, 0.45);
+
+    /* TEXT */
+
+    --text-primary: #edf7ff;
+    --text-secondary: #a4b9cd;
+    --text-muted: #71869c;
+
+    /* ACCENT */
+
+    --cyan: #32d5e9;
+    --cyan-light: #7cecff;
+    --cyan-glow: rgba(50, 213, 233, 0.15);
+
+    /* STATUS COLORS */
+
+    --green: #37d99a;
+    --yellow: #f4c75b;
+    --orange: #ff994d;
+    --red: #ff596d;
+
+    /* TYPOGRAPHY */
+
+    --font-main: -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+
+    --font-mono: "SFMono-Regular", Consolas,
+        "Liberation Mono", monospace;
+
+    /* SPACING */
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+
+    /* RADIUS */
+
+    --radius-sm: 8px;
+    --radius-md: 13px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+
+    /* SHADOWS */
+
+    --shadow-card: 0 10px 35px rgba(0, 0, 0, 0.2);
+
+    --shadow-glow: 0 0 25px rgba(50, 213, 233, 0.12);
+
+    /* TRANSITIONS */
+
+    --transition: 180ms ease;
+
+}
