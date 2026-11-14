@@ -11,22 +11,20 @@
           content="AstroHealth - Astronaut Mission Health Monitoring Console">
 
     <title>AstroHealth | Mission Health Console</title>
+<link rel="stylesheet" href="./css/tokens.css">
+<link rel="stylesheet" href="./css/base.css">
+<link rel="stylesheet" href="./css/components.css">
+<link rel="stylesheet" href="./css/pages.css">
 
-   <link rel="stylesheet" href="./css/tokens.css">
-    <link rel="stylesheet" href="./css/base.css">
-    <link rel="stylesheet" href="./css/components.css">
-    <link rel="stylesheet" href="./css/pages.css">
-
-    <img src="./assets/logo.svg" alt="AstroHealth logo">
-
-    <script type="module" src="./js/router.js"></script>
+<!-- Earth mission-control theme: load last -->
+<link rel="stylesheet" href="./css/theme-earth.css">
 
     <link rel="icon" href="./assets/logo.svg" type="image/svg+xml">
 </head>
 
-<body>
+<body class="photo-earth">
 
-<div class="app-background"></div>
+<div class="app-background space-bg" aria-hidden="true"></div>
 
 <div class="app-shell">
 
@@ -37,7 +35,7 @@
         <div class="brand">
 
             <div class="brand-logo">
-                <img src="/static/assets/logo.svg" alt="AstroHealth logo">
+                <img src="./assets/logo.svg" alt="AstroHealth logo">
             </div>
 
             <div class="brand-info">
@@ -256,6 +254,11 @@
 
         <span>SIMULATED DATA ONLY</span>
 
+<span>
+    Earth imagery and 3D models: NASA (public domain where noted).
+    Simulated data for demonstration.
+</span>
+
     </footer>
 
 </div>
@@ -265,6 +268,9 @@
 
 <div id="toastContainer" class="toast-container"
      aria-live="polite"></div>
+
+
+<script type="module" src="./js/router.js"></script>
 
 </body>
 </html>
