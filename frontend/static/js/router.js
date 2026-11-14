@@ -15,7 +15,12 @@ import {
 } from "./api.js";
 
 import { getEnvironment } from "./environments.js";
-
+import { renderBodyMap } from "./body-map.js";
+import { renderGroundReport } from "./ground-report.js";
+import { renderGamesPage } from "./games.js";
+import { renderVisionPage } from "./vision.js";
+import { radiationCardHTML } from "./radiation.js";
+import { ecgHTML, moodCardHTML, bindMoodInput } from "./dashboard-extras.js";
 /* =========================================
    ASTROHEALTH - APPLICATION ROUTER
 ========================================= */
@@ -28,6 +33,7 @@ let lastStatus = null;
 let lastAlerts = [];
 let lastCrew = [];
 let refreshInProgress = false;
+let pageCleanup = null;
 
 const REFRESH_INTERVAL = 2500;
 
@@ -70,6 +76,18 @@ const routes = {
         title: "Ground Medical Report",
         icon: "▧",
         description: "Mission health summary and medical observations."
+    },
+
+    games: {
+        title: "Focus Games",
+        icon: "◎",
+        description: "Short cognitive check-ins for alertness and readiness."
+    },
+
+    vision: {
+        title: "Alertness Scan",
+        icon: "◉",
+        description: "Camera-based fatigue check using MediaPipe face tracking."
     }
 };
 
@@ -314,6 +332,14 @@ function renderDashboard() {
             unit: "",
             icon: "☻",
             value: vitals.mood
+        },
+
+        {
+            name: "RADIATION",
+            key: "radiation",
+            unit: "mSv/day",
+            icon: "☢",
+            value: null
         }
 
     ];
@@ -326,6 +352,18 @@ function renderDashboard() {
         const status = getVitalStatus(item.key);
 
         const value = item.value ?? "--";
+
+        if (item.key === "mood") {
+            return moodCardHTML(astronautId, { badgeClass, getStatusSymbol });
+        }
+
+        if (item.key === "radiation") {
+            return radiationCardHTML(
+                currentState.environment,
+                currentState.scenario,
+                { badgeClass, getStatusSymbol }
+            );
+        }
 
         return `
             <article
@@ -354,6 +392,8 @@ function renderDashboard() {
                     </small>
 
                 </div>
+
+                ${item.key === "heart_rate" ? ecgHTML(value, status) : ""}
 
                 <div class="vital-bottom">
 
@@ -880,36 +920,48 @@ function renderPlaceholder(route) {
 ========================================= */
 
 function navigate(route) {
-
     if (!routes[route]) {
         route = "dashboard";
     }
 
-    setState({
-        route
-    });
+    if (typeof pageCleanup === "function") {
+        pageCleanup();
+    }
+
+    pageCleanup = null;
+
+    setState({ route });
 
     document.querySelectorAll(".nav-link").forEach(link => {
-
         link.classList.toggle(
             "active",
             link.dataset.route === route
         );
-
     });
 
     if (route === "dashboard") {
-
         renderDashboard();
-
-    } else {
-
-        renderPlaceholder(route);
-
+    } else if (route === "body") {
+        renderBodyMap(main, lastVitals || {}, lastStatus || {});
+    } 
+     else if (route === "report") {
+    renderGroundReport(
+        main,
+        {
+            astronaut: getState().astronaut,
+            crew: lastCrew,
+            vitals: lastVitals,
+            status: lastStatus,
+            alerts: lastAlerts
+        },
+        showToast
+    );
+    } else if (route === "games") {
+        pageCleanup = renderGamesPage(main, showToast);
+    } else if (route === "vision") {
+        pageCleanup = renderVisionPage(main, showToast);
     }
-
 }
-
 
 /* =========================================
    DATA REFRESH
@@ -1305,6 +1357,17 @@ async function initialize() {
     try {
 
         setupControls();
+
+        bindMoodInput(
+            main,
+            () => getState().astronaut,
+            () => {
+                if (getState().route === "dashboard") {
+                    renderDashboard();
+                }
+            },
+            showToast
+        );
 
         setupNavigation();
 
