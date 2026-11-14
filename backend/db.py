@@ -115,6 +115,36 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_alerts_timestamp
             ON alerts(timestamp);
         """)
+        
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS radiation_readings (
+
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                timestamp TEXT NOT NULL,
+
+                instrument_id TEXT NOT NULL,
+
+                absorbed_dose_rate REAL,
+
+                dose_equivalent_rate REAL,
+
+                flux REAL,
+
+                instrument TEXT,
+
+                spacecraft TEXT,
+
+                data_source TEXT NOT NULL DEFAULT 'NASA OSDR RadLab',
+
+                UNIQUE(timestamp, instrument_id)
+            )
+        """)
+
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_radiation_timestamp
+            ON radiation_readings(timestamp)
+        """)
 
 def insert_reading(reading):
     """
@@ -272,3 +302,43 @@ def acknowledge_alert(alert_id):
             (alert_id,),
         )
         return cursor.rowcount > 0
+    
+def get_latest_radiation_reading(instrument_id=None):
+    """Get the latest NASA radiation reading."""
+
+    query = """
+        SELECT *
+        FROM radiation_readings
+    """
+    params = []
+
+    if instrument_id:
+        query += " WHERE instrument_id = ?"
+        params.append(instrument_id)
+
+    query += " ORDER BY timestamp DESC, id DESC LIMIT 1"
+
+    with get_connection() as conn:
+        row = conn.execute(query, params).fetchone()
+        return dict(row) if row else None
+
+
+def get_radiation_readings(limit=100, instrument_id=None):
+    """Get recent NASA radiation readings."""
+
+    query = """
+        SELECT *
+        FROM radiation_readings
+    """
+    params = []
+
+    if instrument_id:
+        query += " WHERE instrument_id = ?"
+        params.append(instrument_id)
+
+    query += " ORDER BY timestamp DESC, id DESC LIMIT ?"
+    params.append(limit)
+
+    with get_connection() as conn:
+        rows = conn.execute(query, params).fetchall()
+        return [dict(row) for row in rows]

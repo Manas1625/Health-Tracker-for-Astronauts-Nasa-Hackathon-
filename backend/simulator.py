@@ -1,4 +1,3 @@
-
 """
 simulator.py
 
@@ -10,6 +9,7 @@ Features:
 3. NORMAL, WARNING and CRITICAL scenarios.
 4. Gradual transition between scenarios.
 5. Automatic SQLite storage.
+6. Automatic health detection and alert generation.
 """
 
 import random
@@ -18,10 +18,16 @@ import time
 
 from datetime import datetime, timezone
 
-from backend.config import ASTRONAUTS, SCENARIO_TARGETS, SIMULATION_INTERVAL
+from backend.config import (
+    ASTRONAUTS,
+    SCENARIO_TARGETS,
+    SIMULATION_INTERVAL
+)
+
 from backend.db import insert_reading, init_db
 from backend.detection import evaluate_reading
 from backend.alerts import process_health_status
+
 
 class HealthSimulator:
 
@@ -30,13 +36,10 @@ class HealthSimulator:
         self.lock = threading.RLock()
 
         self.running = False
-
         self.thread = None
 
         self.scenarios = {}
-
         self.current_values = {}
-
         self.target_values = {}
 
         # Initialize every astronaut.
@@ -47,24 +50,20 @@ class HealthSimulator:
             personal = astronaut["personal"].copy()
 
             self.current_values[astronaut_id] = personal.copy()
-
             self.target_values[astronaut_id] = personal.copy()
 
     def set_scenario(self, mode, astronaut="all"):
         """
         Change the simulation mode.
-
         Values gradually move toward the new targets.
         """
 
         mode = mode.upper()
 
         if mode not in SCENARIO_TARGETS:
-
             raise ValueError("Invalid simulation scenario.")
 
         if astronaut != "all" and astronaut not in ASTRONAUTS:
-
             raise ValueError("Unknown astronaut ID.")
 
         with self.lock:
@@ -86,14 +85,10 @@ class HealthSimulator:
     def calculate_targets(self, astronaut_id, mode):
         """
         Calculate target values for an astronaut.
-
-        Each astronaut gets slightly different values
-        within the selected scenario.
+        Each astronaut gets slightly different values.
         """
 
         targets = SCENARIO_TARGETS[mode]
-
-        personal = ASTRONAUTS[astronaut_id]["personal"]
 
         result = {}
 
@@ -117,11 +112,10 @@ class HealthSimulator:
 
     def generate_next_reading(self, astronaut_id):
         """
-        Generate one smooth reading.
+        Generate one smooth simulated reading.
         """
 
         current = self.current_values[astronaut_id]
-
         target = self.target_values[astronaut_id]
 
         next_values = {}
@@ -133,21 +127,18 @@ class HealthSimulator:
             # Gradually move 8% toward the target.
             movement = (target_value - previous_value) * 0.08
 
-            # Add a small random variation.
+            # Add small random variation.
             noise = random.gauss(0, 0.12)
 
-            # Smaller noise for discrete indicators.
+            # No noise for discrete indicators.
             if indicator in ("mood", "stress"):
-
                 noise = 0
 
             new_value = previous_value + movement + noise
 
-            # Keep discrete values as integers.
             if indicator in ("mood", "stress"):
 
                 new_value = round(new_value)
-
                 new_value = max(1, min(5, new_value))
 
             else:
@@ -162,7 +153,7 @@ class HealthSimulator:
 
     def generate_reading(self, astronaut_id):
         """
-        Generate and persist one astronaut reading.
+        Generate, persist, and evaluate one astronaut reading.
         """
 
         with self.lock:
@@ -170,22 +161,27 @@ class HealthSimulator:
             values = self.generate_next_reading(astronaut_id)
 
             reading = {
-
                 "astronaut_id": astronaut_id,
-
-                "timestamp": datetime.now(
-                    timezone.utc
-                ).isoformat(),
-
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 **values,
-
                 "scenario": self.scenarios[astronaut_id],
-
                 "data_source": "SIMULATED"
-
             }
 
+        # Save reading to SQLite.
         insert_reading(reading)
+
+        # Evaluate the reading.
+        health_status = evaluate_reading(reading)
+
+        # Attach actual detected health status.
+        reading["health_status"] = health_status
+
+        # Generate alerts when required.
+        process_health_status(
+            astronaut_id,
+        health_status
+        )
 
         return reading
 
@@ -207,7 +203,6 @@ class HealthSimulator:
     def simulation_loop(self):
         """
         Background thread.
-
         Runs continuously until stopped.
         """
 
@@ -235,7 +230,6 @@ class HealthSimulator:
         """
 
         if self.running:
-
             return
 
         init_db()
@@ -246,30 +240,27 @@ class HealthSimulator:
         self.generate_all()
 
         self.thread = threading.Thread(
-
             target=self.simulation_loop,
-
             name="AstroHealthSimulator",
-
             daemon=True
-
         )
 
         self.thread.start()
 
         print("AstroHealth simulator started.")
-
         print("Astronauts:", len(ASTRONAUTS))
-
         print("Interval:", SIMULATION_INTERVAL, "seconds")
 
     def stop(self):
+        """
+        Stop the background simulation.
+        """
 
         self.running = False
 
         if self.thread:
-
             self.thread.join(timeout=5)
+
 
 # Shared simulator instance.
 simulator = HealthSimulator()

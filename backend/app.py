@@ -10,6 +10,10 @@ on port 5000 remains untouched.
 """
 
 from flask import Flask, jsonify, request
+from backend.detection import (
+    detect_radiation_anomaly,
+    evaluate_reading
+)
 
 from flask_cors import CORS
 
@@ -21,8 +25,11 @@ from backend.config import (
 from backend.db import (
     get_latest_reading,
     get_reading_count,
-    acknowledge_alert
+    acknowledge_alert,
+    get_latest_radiation_reading,
+    get_radiation_readings
 )
+from backend.detection import detect_radiation_anomaly
 
 from backend.alerts import list_alerts
 from backend.simulator import simulator
@@ -91,6 +98,8 @@ def latest_vitals():
             "error": "No readings available."
 
         }), 404
+        
+    reading["health_status"] = evaluate_reading(reading)
 
     return jsonify({
 
@@ -251,6 +260,114 @@ def acknowledge_alert_route(alert_id):
         "alert_id": alert_id
     }), 200
 
+
+# --------------------------------------------------
+# NASA RADIATION DATA
+# --------------------------------------------------
+
+@app.route("/api/radiation/latest", methods=["GET"])
+def latest_radiation():
+
+    instrument_id = request.args.get("instrument")
+
+    if instrument_id and instrument_id not in ("DosTel1", "DosTel2"):
+        return jsonify({
+            "success": False,
+            "error": "Invalid instrument ID."
+        }), 400
+
+    reading = get_latest_radiation_reading(instrument_id)
+
+    if reading is None:
+        return jsonify({
+            "success": False,
+            "error": "No radiation readings available."
+        }), 404
+
+    return jsonify({
+        "success": True,
+        "source": "NASA OSDR RadLab",
+        "data_type": "HISTORICAL ISS ENVIRONMENTAL MEASUREMENT",
+        "data": reading
+    }), 200
+
+
+@app.route("/api/radiation/history", methods=["GET"])
+def radiation_history():
+
+    instrument_id = request.args.get("instrument")
+
+    if instrument_id and instrument_id not in ("DosTel1", "DosTel2"):
+        return jsonify({
+            "success": False,
+            "error": "Invalid instrument ID."
+        }), 400
+
+    try:
+        limit = int(request.args.get("limit", 100))
+    except ValueError:
+        return jsonify({
+            "success": False,
+            "error": "Limit must be a number."
+        }), 400
+
+    if not 1 <= limit <= 500:
+        return jsonify({
+            "success": False,
+            "error": "Limit must be between 1 and 500."
+        }), 400
+
+    readings = get_radiation_readings(
+        limit=limit,
+        instrument_id=instrument_id
+    )
+
+    return jsonify({
+        "success": True,
+        "source": "NASA OSDR RadLab",
+        "data_type": "HISTORICAL ISS ENVIRONMENTAL MEASUREMENTS",
+        "count": len(readings),
+        "data": readings
+    }), 200
+    
+@app.route("/api/radiation/anomaly", methods=["GET"])
+def radiation_anomaly():
+
+    results = {}
+
+    instruments = ["DosTel1", "DosTel2"]
+
+    for instrument_id in instruments:
+
+        reading = get_latest_radiation_reading(instrument_id)
+
+        if reading is None:
+            results[instrument_id] = {
+                "status": "NO_DATA",
+                "message": "No radiation readings available."
+            }
+            continue
+
+        history = get_radiation_readings(
+            limit=1000,
+            instrument_id=instrument_id
+        )
+
+        result = detect_radiation_anomaly(
+            reading,
+            history
+        )
+
+        results[instrument_id] = result
+
+    return jsonify({
+        "success": True,
+        "source": "NASA OSDR RadLab",
+        "data_type": "HISTORICAL ISS ENVIRONMENTAL MEASUREMENTS",
+        "data": results
+    }), 200
+    
+    
 # --------------------------------------------------
 # START SERVER
 # --------------------------------------------------

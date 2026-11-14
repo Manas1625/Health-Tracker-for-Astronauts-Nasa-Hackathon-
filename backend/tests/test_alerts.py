@@ -4,14 +4,7 @@ import sys
 import unittest
 import tempfile
 
-sys.path.insert(
-    0,
-    os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
-
-import db
-import alerts
-
+from backend import db, alerts
 
 class AlertEngineTests(unittest.TestCase):
 
