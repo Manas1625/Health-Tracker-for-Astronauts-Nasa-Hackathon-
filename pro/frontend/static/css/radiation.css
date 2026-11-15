@@ -1,0 +1,31 @@
+.radiation-nasa-details {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0;
+}
+.radiation-nasa-details div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding-top: 7px;
+    border-top: 1px solid rgba(120, 160, 190, .16);
+}
+.radiation-nasa-details span,
+.radiation-timestamp,
+.radiation-disclaimer {
+    color: var(--text-muted, #8a9aaa);
+    font: 9px/1.5 monospace;
+    letter-spacing: .5px;
+}
+.radiation-nasa-details strong {
+    color: var(--text-primary, #e8f2fc);
+    font-size: 11px;
+    text-align: right;
+}
+.radiation-timestamp { margin: 8px 0 0; }
+.radiation-disclaimer {
+    margin: 5px 0 0;
+    letter-spacing: 0;
+    font-family: inherit;
+}

@@ -1,60 +1,59 @@
-
 from datetime import datetime, timezone
 
-from backend.db import create_alert, get_alerts
+from backend.db import (
+    create_alert,
+    get_alerts,
+    get_open_alert_for_indicator,
+    resolve_open_alerts,
+)
 
 
-# Prevent repeated alerts for the same astronaut and indicator.
-# A new alert can be generated if severity changes.
+# Kept for compatibility with existing tests/tools; SQLite is the source of truth.
 _active_alerts = {}
 
 
 def process_health_status(astronaut_id, health_status):
     """
-    Convert health-status results into persistent alerts.
+    Keep one open alert per astronaut/indicator.
 
-    Expected health_status format:
-    {
-        "indicators": {
-            "heart_rate": {
-                "status": "RED",
-                "message": "...",
-                "recommended_action": "..."
-            }
-        }
-    }
+    An alert is closed when its indicator returns to GREEN or when its
+    severity changes. This prevents stale alerts from previous scenarios
+    accumulating in the active Alert Centre.
     """
     created = []
-
     indicators = health_status.get("indicators", {})
 
     for indicator, result in indicators.items():
         severity = str(result.get("status", "GREEN")).upper()
+        existing = get_open_alert_for_indicator(astronaut_id, indicator)
+
+        if severity == "GREEN":
+            if existing:
+                resolve_open_alerts(astronaut_id, indicator)
+            continue
 
         if severity not in ("YELLOW", "ORANGE", "RED"):
-            _active_alerts.pop((astronaut_id, indicator), None)
             continue
 
-        key = (astronaut_id, indicator)
-
-        # Avoid creating duplicate alerts at every simulation tick.
-        if _active_alerts.get(key) == severity:
+        # Keep the existing alert if the condition and severity are unchanged.
+        if existing and str(existing.get("severity", "")).upper() == severity:
             continue
 
+        # Close the previous severity before creating the current alert.
+        if existing:
+            resolve_open_alerts(astronaut_id, indicator)
+
+        actions = result.get("recommended_actions", [])
         alert = {
             "astronaut_id": astronaut_id,
             "indicator": indicator,
             "severity": severity,
             "message": result.get(
-                "message",
-                f"{indicator} requires attention."
+                "message", f"{indicator} requires attention."
             ),
             "recommended_action": result.get(
                 "recommended_action",
-                "; ".join(result.get(
-                "recommended_actions",
-                ["Review the latest readings."]
-                ))
+                "; ".join(actions) if actions else "Review the latest readings."
             ),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
@@ -62,9 +61,7 @@ def process_health_status(astronaut_id, health_status):
         alert_id = create_alert(alert)
         alert["id"] = alert_id
         alert["acknowledged"] = 0
-
         created.append(alert)
-        _active_alerts[key] = severity
 
     return created
 

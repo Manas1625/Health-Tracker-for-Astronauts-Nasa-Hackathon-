@@ -1,0 +1,262 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color" content="#07111f">
+
+    <meta name="description"
+          content="AstroHealth - Astronaut Mission Health Monitoring Console">
+
+    <title>AstroHealth | Mission Health Console</title>
+
+    <!-- Existing stylesheets -->
+    <link rel="stylesheet" href="./css/tokens.css">
+    <link rel="stylesheet" href="./css/base.css">
+    <link rel="stylesheet" href="./css/components.css">
+    <link rel="stylesheet" href="./css/pages.css">
+<link rel="stylesheet" href="./css/body-map.css">
+<link rel="stylesheet" href="./css/report.css">
+    <!-- Earth mission-control theme -->
+    <link rel="stylesheet" href="./css/theme-earth.css">
+
+    <!-- Focus Games theme -->
+    <link rel="stylesheet" href="./css/games.css">
+
+    <!-- Dashboard extras: ECG trace + mood check-in -->
+    <link rel="stylesheet" href="./css/dashboard-extras.css">
+
+    <!-- Alertness Scan (MediaPipe) + radiation card -->
+    <link rel="stylesheet" href="./css/vision.css">
+    <link rel="stylesheet" href="./css/radiation.css">
+
+    <link rel="icon" href="./assets/logo.svg" type="image/svg+xml">
+</head>
+
+<body class="photo-earth">
+
+    <div class="app-background space-bg" aria-hidden="true"></div>
+
+    <div class="app-shell">
+
+        <!-- TOP HEADER -->
+        <header class="topbar">
+
+            <div class="brand">
+
+                <div class="brand-logo">
+                    <img src="./assets/logo.svg" alt="AstroHealth logo">
+                </div>
+
+                <div class="brand-info">
+                    <h1>ASTRO<span>HEALTH</span></h1>
+                    <p>MISSION HEALTH CONSOLE</p>
+                </div>
+
+            </div>
+
+            <div class="header-controls">
+
+                <div class="control-group">
+                    <label for="astronautSelect">ACTIVE CREW</label>
+
+                    <select id="astronautSelect" aria-label="Select astronaut">
+                        <option value="AH-001">Commander Alex Morgan</option>
+                        <option value="AH-002">Dr. Sarah Chen</option>
+                        <option value="AH-003">Pilot James Wilson</option>
+                        <option value="AH-004">Engineer Maya Patel</option>
+                    </select>
+                </div>
+
+                <div class="control-group environment-control">
+                    <label for="environmentSelect">ENVIRONMENT</label>
+
+                    <select id="environmentSelect" aria-label="Select environment">
+                        <option value="spacecraft">Deep Space Transit</option>
+                        <option value="station">Space Station</option>
+                        <option value="rover">Planetary Rover</option>
+                        <option value="mars">Mars Base</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="system-status">
+
+                <div class="simulation-status">
+                    <span class="status-dot"></span>
+                    <span>SIMULATION MODE</span>
+                </div>
+
+                <div class="connection-status" id="connectionStatus">
+                    <span class="connection-dot"></span>
+                    <span id="connectionText">INITIALIZING</span>
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- MISSION STATUS BAR -->
+        <section class="mission-bar">
+
+            <div class="mission-info">
+                <span class="mission-label">MISSION</span>
+                <strong>ORBIT-01</strong>
+
+                <span class="mission-divider"></span>
+
+                <span class="mission-label">CREW ID</span>
+                <strong id="crewIdDisplay">AH-001</strong>
+            </div>
+
+            <div class="mission-info">
+                <span class="live-indicator"></span>
+                <span class="telemetry-text">LIVE TELEMETRY</span>
+
+                <span class="mission-divider"></span>
+
+                <span id="lastUpdated">Waiting for telemetry...</span>
+            </div>
+
+            <button class="delay-button" id="delayToggle"
+                    aria-pressed="false">
+
+                <span class="delay-icon">◷</span>
+                <span id="delayText">COMM DELAY: OFF</span>
+
+            </button>
+
+        </section>
+
+
+        <!-- MAIN LAYOUT -->
+        <div class="main-layout">
+
+            <!-- SIDEBAR -->
+            <aside class="sidebar">
+
+                <div class="sidebar-heading">MISSION MODULES</div>
+
+                <nav class="navigation" aria-label="Main navigation">
+
+                    <a href="#/dashboard" class="nav-link active"
+                       data-route="dashboard">
+                        <span class="nav-icon">◫</span>
+                        <span>Dashboard</span>
+                        <span class="nav-arrow">›</span>
+                    </a>
+
+                    <a href="#/body" class="nav-link"
+                       data-route="body">
+                        <span class="nav-icon">♙</span>
+                        <span>Body Map</span>
+                        <span class="nav-arrow">›</span>
+                    </a>
+                    <a href="#/report" class="nav-link"
+                       data-route="report">
+                        <span class="nav-icon">▧</span>
+                        <span>Ground Report</span>
+                        <span class="nav-arrow">›</span>
+                    </a>
+
+                    <!-- NEW: FOCUS GAMES -->
+                    <a href="#/games" class="nav-link"
+                       data-route="games">
+                        <span class="nav-icon">◎</span>
+                        <span>Focus Games</span>
+                        <span class="nav-arrow">›</span>
+                    </a>
+
+                    <!-- NEW: ALERTNESS SCAN (MediaPipe) -->
+                    <a href="#/vision" class="nav-link"
+                       data-route="vision">
+                        <span class="nav-icon">◉</span>
+                        <span>Alertness Scan</span>
+                        <span class="nav-arrow">›</span>
+                    </a>
+
+                </nav>
+
+
+                <div class="sidebar-bottom">
+
+                    <div class="mission-card">
+
+                        <div class="mission-card-icon">✦</div>
+
+                        <p class="eyebrow">MISSION OBJECTIVE</p>
+
+                        <h3>Protect Crew Health</h3>
+
+                        <p>
+                            Monitor health indicators and identify
+                            potential risks early.
+                        </p>
+
+                        <div class="mission-progress">
+                            <span></span>
+                        </div>
+
+                        <small>MISSION DAY 042 / 180</small>
+
+                    </div>
+
+                    <div class="sidebar-footer">
+                        <span class="status-dot"></span>
+                        SYSTEM OPERATIONAL
+                    </div>
+
+                </div>
+
+            </aside>
+
+
+            <!-- MAIN CONTENT -->
+            <main class="main-content" id="mainContent" tabindex="-1">
+
+                <div class="loading-screen">
+                    <div class="loader"></div>
+                    <p>INITIALIZING MISSION SYSTEMS...</p>
+                </div>
+
+            </main>
+
+        </div>
+
+
+        <!-- GLOBAL FOOTER -->
+        <footer class="app-footer">
+
+            <span>ASTROHEALTH SYSTEM v1.0</span>
+
+            <span>
+                Prototype for demonstration. Not medical advice.
+                Thresholds are illustrative. Based on NASA Human Research Program risk areas.
+            </span>
+
+            <span>SIMULATED DATA ONLY</span>
+
+            <span>
+                Earth imagery and 3D models: NASA (public domain where noted).
+                Simulated data for demonstration.
+            </span>
+
+        </footer>
+
+    </div>
+
+
+    <!-- TOAST CONTAINER -->
+    <div id="toastContainer" class="toast-container"
+         aria-live="polite"></div>
+
+
+    <!-- APPLICATION ROUTER -->
+    <script type="module" src="./js/router.js"></script>
+
+</body>
+</html>

@@ -122,6 +122,12 @@ class HealthSimulator:
 
         for indicator, previous_value in current.items():
 
+            # Sleep duration is a daily measurement, not continuous telemetry.
+            # Keep the astronaut's recorded sleep value unchanged between days.
+            if indicator == "sleep_hours":
+                next_values[indicator] = previous_value
+                continue
+
             target_value = target[indicator]
 
             # Gradually move 8% toward the target.

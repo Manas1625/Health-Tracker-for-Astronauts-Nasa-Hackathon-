@@ -294,6 +294,34 @@ def get_alerts(astronaut_id=None, limit=100, unacknowledged_only=False):
         return [dict(row) for row in rows]
 
 
+def get_open_alert_for_indicator(astronaut_id, indicator):
+    """Return the current unacknowledged alert for one indicator, if any."""
+    with get_connection() as conn:
+        row = conn.execute("""
+            SELECT *
+            FROM alerts
+            WHERE astronaut_id = ?
+              AND indicator = ?
+              AND acknowledged = 0
+            ORDER BY timestamp DESC, id DESC
+            LIMIT 1
+        """, (astronaut_id, indicator)).fetchone()
+        return dict(row) if row else None
+
+
+def resolve_open_alerts(astronaut_id, indicator):
+    """Close outstanding alerts when an indicator changes or returns to normal."""
+    with get_connection() as conn:
+        cursor = conn.execute("""
+            UPDATE alerts
+            SET acknowledged = 1
+            WHERE astronaut_id = ?
+              AND indicator = ?
+              AND acknowledged = 0
+        """, (astronaut_id, indicator))
+        return cursor.rowcount
+
+
 def acknowledge_alert(alert_id):
     """Mark an alert as acknowledged."""
     with get_connection() as conn:
