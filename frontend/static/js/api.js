@@ -2,7 +2,7 @@
 import { getMockData, setMockScenario } from "./mock.js";
 import { getState, setState } from "./state.js";
 
-const API_BASE = "http://127.0.0.1:5001";
+const API_BASE = "https://health-tracker-for-astronauts-nasa.onrender.com";
 
 let mockActive = false;
 
