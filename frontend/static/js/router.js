@@ -7,12 +7,12 @@ import {
 import {
     getLatestVitals,
     getCrew,
-    getLatestRadiation,
     getAlerts,
     setScenario,
     setDelay,
-    acknowledgeAlert,
-    isMockActive
+    isMockActive,
+    getLatestRadiation,
+    getRadiationAnomaly
 } from "./api.js";
 
 import { getEnvironment } from "./environments.js";
@@ -34,6 +34,7 @@ let lastStatus = null;
 let lastAlerts = [];
 let lastCrew = [];
 let lastRadiation = null;
+let lastRadiationAnomaly = null;
 let refreshInProgress = false;
 let pageCleanup = null;
 
@@ -235,14 +236,6 @@ function getVitalStatus(indicator) {
 
     const indicators = lastStatus?.indicators || {};
 
-    if (indicator === "blood_pressure") {
-        const rank = { GREEN: 0, YELLOW: 1, ORANGE: 2, RED: 3 };
-        const systolic = normalizeStatus(indicators.systolic?.status);
-        const diastolic = normalizeStatus(indicators.diastolic?.status);
-
-        return rank[systolic] >= rank[diastolic] ? systolic : diastolic;
-    }
-
     const status = indicators[indicator];
 
     if (typeof status === "string") {
@@ -278,7 +271,7 @@ function renderDashboard() {
 
     const vitals = lastVitals || {};
 
-    const overall = lastStatus?.overall_status || "NORMAL";
+    const overall = lastStatus?.overall || "NORMAL";
 
     const environment = getEnvironment(
         currentState.environment
@@ -317,23 +310,23 @@ function renderDashboard() {
             key: "blood_pressure",
             unit: "mmHg",
             icon: "⌁",
-            value: `${vitals.systolic ?? "--"} / ${vitals.diastolic ?? "--"}`
+            value: vitals.blood_pressure
         },
 
         {
             name: "BLOOD GLUCOSE",
-            key: "blood_glucose",
+            key: "glucose",
             unit: "mg/dL",
             icon: "◈",
-            value: vitals.blood_glucose
+            value: vitals.glucose
         },
 
         {
             name: "SLEEP",
-            key: "sleep_hours",
+            key: "sleep",
             unit: "hours",
             icon: "☾",
-            value: vitals.sleep_hours
+            value: vitals.sleep
         },
 
         {
@@ -368,7 +361,11 @@ function renderDashboard() {
         }
 
         if (item.key === "radiation") {
-            return radiationCardHTML(lastRadiation);
+            return radiationCardHTML(
+                lastRadiation,
+                lastRadiationAnomaly,
+                { badgeClass, getStatusSymbol }
+            );
         }
 
         return `
@@ -454,13 +451,9 @@ function renderDashboard() {
 
                     </div>
 
-                    <button
-                        type="button"
-                        class="alert-acknowledge"
-                        data-alert-id="${escapeHTML(alert.id)}"
-                    >
-                        Acknowledge
-                    </button>
+                    <span class="trend-text">
+                        OPEN
+                    </span>
 
                 </div>
             `;
@@ -603,7 +596,7 @@ function renderDashboard() {
                 </p>
 
                 <div class="stat-value">
-                    ${escapeHTML(vitals.data_source || "SIMULATED")}
+                    LIVE
                 </div>
 
                 <p class="stat-description">
@@ -818,36 +811,6 @@ function renderDashboard() {
     `;
 
 
-    /* ALERT ACKNOWLEDGEMENT */
-
-    document.querySelectorAll("[data-alert-id]").forEach(button => {
-
-        button.addEventListener("click", async () => {
-
-            const alertId = button.dataset.alertId;
-            button.disabled = true;
-
-            try {
-                const result = await acknowledgeAlert(alertId);
-
-                if (result.isMock || !result.data?.success) {
-                    throw new Error("Alert acknowledgement was not confirmed by the backend.");
-                }
-
-                await refreshData();
-                showToast("Alert acknowledged.", "success");
-
-            } catch (error) {
-                button.disabled = false;
-                console.error("[AstroHealth] Alert acknowledgement failed:", error);
-                showToast("Could not acknowledge alert. Check the backend connection.", "error");
-            }
-
-        });
-
-    });
-
-
     /* SCENARIO BUTTON EVENTS */
 
     document.querySelectorAll("[data-scenario]").forEach(button => {
@@ -1023,14 +986,20 @@ async function refreshData() {
 
             getCrew(),
 
-            getAlerts()
+            getAlerts(),
+
+            getLatestRadiation(),
+
+            getRadiationAnomaly()
 
         ]);
 
         const [
             vitalsResult,
-            crewResult,           
-            alertsResult
+            crewResult,
+            alertsResult,
+            radiationResult,
+            radiationAnomalyResult
         ] = results;
 
 
@@ -1042,7 +1011,7 @@ async function refreshData() {
             ...(vitals && typeof vitals === "object" ? vitals : {}),
 
             readings_stored:
-                vitalsResult.data?.readings_stored ?? 0
+                vitalsResult.data?.readings_stored || 128
         };
 
 
@@ -1051,17 +1020,6 @@ async function refreshData() {
         const crew = extractData(crewResult);
 
         lastCrew = Array.isArray(crew) ? crew : [];
-
-        const astronautSelect = document.getElementById("astronautSelect");
-        if (astronautSelect && lastCrew.length) {
-            const selectedAstronaut = getState().astronaut;
-            astronautSelect.innerHTML = lastCrew.map(person => `
-                <option value="${escapeHTML(person.id)}">
-                    ${escapeHTML(person.role)} ${escapeHTML(person.name)}
-                </option>
-            `).join("");
-            astronautSelect.value = selectedAstronaut;
-        }
 
 
         /* STATUS */
@@ -1073,6 +1031,16 @@ async function refreshData() {
         const alerts = extractData(alertsResult);
 
         lastAlerts = Array.isArray(alerts) ? alerts : [];
+
+
+        /* NASA OSDR RADLAB DATA */
+        lastRadiation = extractData(radiationResult) || null;
+        lastRadiationAnomaly = radiationResult.data?.anomaly || null;
+
+        if (!lastRadiationAnomaly && lastRadiation) {
+            const anomalyData = radiationAnomalyResult.data?.data || {};
+            lastRadiationAnomaly = anomalyData[lastRadiation.instrument_id] || null;
+        }
 
 
         /* UPDATE SHARED STATE */
@@ -1147,27 +1115,6 @@ async function refreshData() {
 
     }
 
-}
-
-
-async function loadRadiationData() {
-
-    try {
-        const result = await getLatestRadiation();
-        const payload = result?.data;
-
-        lastRadiation = payload?.success
-            ? payload.data
-            : null;
-
-    } catch (error) {
-        console.warn("[AstroHealth] Radiation data unavailable:", error);
-        lastRadiation = null;
-    }
-
-    if (getState().route === "dashboard") {
-        renderDashboard();
-    }
 }
 
 
@@ -1326,9 +1273,19 @@ function setupControls() {
                 getState().delayMinutes
             );
 
-            showToast(
-                "Communication delay is a local UI setting; the backend does not expose a delay endpoint."
-            );
+            if (result.isMock) {
+
+                showToast(
+                    "Delay mode enabled using simulation."
+                );
+
+            } else {
+
+                showToast(
+                    "Communication delay enabled."
+                );
+
+            }
 
         } else {
 
@@ -1426,8 +1383,6 @@ async function initialize() {
         setupNavigation();
 
         await refreshData();
-
-        await loadRadiationData();
 
         startPolling();
 

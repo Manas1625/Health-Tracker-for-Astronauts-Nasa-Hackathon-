@@ -26,7 +26,7 @@ def fetch_radiation_data():
 
         response = requests.get(
             url,
-            timeout=(10, 60)
+            timeout=(5, 20)
         )
 
         response.raise_for_status()

@@ -342,3 +342,29 @@ def get_radiation_readings(limit=100, instrument_id=None):
     with get_connection() as conn:
         rows = conn.execute(query, params).fetchall()
         return [dict(row) for row in rows]
+
+
+def get_readings_history(astronaut_id, limit=30):
+    """Return recent simulated astronaut readings, newest first."""
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT *
+            FROM readings
+            WHERE astronaut_id = ?
+            ORDER BY timestamp DESC, id DESC
+            LIMIT ?
+        """, (astronaut_id, limit)).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_baseline_readings(astronaut_id, limit=30):
+    """Return the earliest stored readings used for the astronaut baseline."""
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT *
+            FROM readings
+            WHERE astronaut_id = ?
+            ORDER BY timestamp ASC, id ASC
+            LIMIT ?
+        """, (astronaut_id, limit)).fetchall()
+        return [dict(row) for row in rows]

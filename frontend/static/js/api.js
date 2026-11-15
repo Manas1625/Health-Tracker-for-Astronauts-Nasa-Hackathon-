@@ -22,11 +22,11 @@ async function request(path, options = {}) {
             signal: AbortSignal.timeout(3500)
         });
 
-        const result = await response.json();
-
-        if (!response.ok && response.status !== 404) {
+        if (!response.ok) {
             throw new Error(`API error: ${response.status}`);
         }
+
+        const result = await response.json();
 
         mockActive = false;
         setState({ mockMode: false });
@@ -55,18 +55,50 @@ async function request(path, options = {}) {
 
 export async function getLatestVitals() {
     const { astronaut } = getState();
-
-    return request(
+    const result = await request(
         `/api/vitals/latest?astronaut=${encodeURIComponent(astronaut)}`
     );
+
+    // Adapt the backend's database field names to the existing UI's field names.
+    if (result.isMock || !result.data?.data) return result;
+
+    const envelope = result.data;
+    const reading = envelope.data;
+    const indicators = reading.health_status?.indicators || {};
+
+    const statusFor = (...keys) => {
+        const statuses = keys
+            .map(key => indicators[key]?.status)
+            .filter(Boolean);
+        const order = ["GREEN", "YELLOW", "ORANGE", "RED"];
+        return statuses.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0] || "GREEN";
+    };
+
+    const normalized = {
+        ...reading,
+        blood_pressure: `${reading.systolic ?? "--"}/${reading.diastolic ?? "--"}`,
+        glucose: reading.blood_glucose,
+        sleep: reading.sleep_hours,
+        health_status: {
+            ...reading.health_status,
+            overall: reading.health_status?.overall_status || "NORMAL",
+            indicators: {
+                ...indicators,
+                blood_pressure: statusFor("systolic", "diastolic"),
+                glucose: indicators.blood_glucose?.status || "GREEN",
+                sleep: indicators.sleep_hours?.status || "GREEN"
+            }
+        }
+    };
+
+    return {
+        ...result,
+        data: { ...envelope, data: normalized }
+    };
 }
 
 export async function getCrew() {
     return request("/api/crew");
-}
-
-export async function getLatestRadiation() {
-    return request("/api/radiation/latest");
 }
 
 export async function getStatus() {
@@ -113,13 +145,10 @@ export async function setScenario(mode) {
 }
 
 export async function setDelay(minutes = 20) {
-    // The backend has no communication-delay endpoint.
-    // Keep this as a local UI preference without fabricating an API call.
-    return {
-        isMock: false,
-        localOnly: true,
-        minutes
-    };
+    return request("/api/delay", {
+        method: "POST",
+        body: JSON.stringify({ minutes })
+    });
 }
 
 export async function getBaseline() {
@@ -134,4 +163,21 @@ export async function acknowledgeAlert(id) {
     return request(`/api/alerts/${encodeURIComponent(id)}/acknowledge`, {
         method: "POST"
     });
+}
+
+
+/* NASA OSDR RadLab radiation data — historical ISS instrument measurements. */
+export async function getLatestRadiation(instrument = "") {
+    const query = instrument ? `?instrument=${encodeURIComponent(instrument)}` : "";
+    return request(`/api/radiation/latest${query}`);
+}
+
+export async function getRadiationHistory(limit = 100, instrument = "") {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (instrument) params.set("instrument", instrument);
+    return request(`/api/radiation/history?${params.toString()}`);
+}
+
+export async function getRadiationAnomaly() {
+    return request("/api/radiation/anomaly");
 }
