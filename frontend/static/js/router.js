@@ -7,10 +7,11 @@ import {
 import {
     getLatestVitals,
     getCrew,
-    getStatus,
+    getLatestRadiation,
     getAlerts,
     setScenario,
     setDelay,
+    acknowledgeAlert,
     isMockActive
 } from "./api.js";
 
@@ -32,6 +33,7 @@ let lastVitals = null;
 let lastStatus = null;
 let lastAlerts = [];
 let lastCrew = [];
+let lastRadiation = null;
 let refreshInProgress = false;
 let pageCleanup = null;
 
@@ -233,6 +235,14 @@ function getVitalStatus(indicator) {
 
     const indicators = lastStatus?.indicators || {};
 
+    if (indicator === "blood_pressure") {
+        const rank = { GREEN: 0, YELLOW: 1, ORANGE: 2, RED: 3 };
+        const systolic = normalizeStatus(indicators.systolic?.status);
+        const diastolic = normalizeStatus(indicators.diastolic?.status);
+
+        return rank[systolic] >= rank[diastolic] ? systolic : diastolic;
+    }
+
     const status = indicators[indicator];
 
     if (typeof status === "string") {
@@ -268,7 +278,7 @@ function renderDashboard() {
 
     const vitals = lastVitals || {};
 
-    const overall = lastStatus?.overall || "NORMAL";
+    const overall = lastStatus?.overall_status || "NORMAL";
 
     const environment = getEnvironment(
         currentState.environment
@@ -307,23 +317,23 @@ function renderDashboard() {
             key: "blood_pressure",
             unit: "mmHg",
             icon: "⌁",
-            value: vitals.blood_pressure
+            value: `${vitals.systolic ?? "--"} / ${vitals.diastolic ?? "--"}`
         },
 
         {
             name: "BLOOD GLUCOSE",
-            key: "glucose",
+            key: "blood_glucose",
             unit: "mg/dL",
             icon: "◈",
-            value: vitals.glucose
+            value: vitals.blood_glucose
         },
 
         {
             name: "SLEEP",
-            key: "sleep",
+            key: "sleep_hours",
             unit: "hours",
             icon: "☾",
-            value: vitals.sleep
+            value: vitals.sleep_hours
         },
 
         {
@@ -358,11 +368,7 @@ function renderDashboard() {
         }
 
         if (item.key === "radiation") {
-            return radiationCardHTML(
-                currentState.environment,
-                currentState.scenario,
-                { badgeClass, getStatusSymbol }
-            );
+            return radiationCardHTML(lastRadiation);
         }
 
         return `
@@ -448,9 +454,13 @@ function renderDashboard() {
 
                     </div>
 
-                    <span class="trend-text">
-                        OPEN
-                    </span>
+                    <button
+                        type="button"
+                        class="alert-acknowledge"
+                        data-alert-id="${escapeHTML(alert.id)}"
+                    >
+                        Acknowledge
+                    </button>
 
                 </div>
             `;
@@ -593,7 +603,7 @@ function renderDashboard() {
                 </p>
 
                 <div class="stat-value">
-                    LIVE
+                    ${escapeHTML(vitals.data_source || "SIMULATED")}
                 </div>
 
                 <p class="stat-description">
@@ -808,6 +818,36 @@ function renderDashboard() {
     `;
 
 
+    /* ALERT ACKNOWLEDGEMENT */
+
+    document.querySelectorAll("[data-alert-id]").forEach(button => {
+
+        button.addEventListener("click", async () => {
+
+            const alertId = button.dataset.alertId;
+            button.disabled = true;
+
+            try {
+                const result = await acknowledgeAlert(alertId);
+
+                if (result.isMock || !result.data?.success) {
+                    throw new Error("Alert acknowledgement was not confirmed by the backend.");
+                }
+
+                await refreshData();
+                showToast("Alert acknowledged.", "success");
+
+            } catch (error) {
+                button.disabled = false;
+                console.error("[AstroHealth] Alert acknowledgement failed:", error);
+                showToast("Could not acknowledge alert. Check the backend connection.", "error");
+            }
+
+        });
+
+    });
+
+
     /* SCENARIO BUTTON EVENTS */
 
     document.querySelectorAll("[data-scenario]").forEach(button => {
@@ -983,16 +1023,13 @@ async function refreshData() {
 
             getCrew(),
 
-            getStatus(),
-
             getAlerts()
 
         ]);
 
         const [
             vitalsResult,
-            crewResult,
-            statusResult,
+            crewResult,           
             alertsResult
         ] = results;
 
@@ -1005,7 +1042,7 @@ async function refreshData() {
             ...(vitals && typeof vitals === "object" ? vitals : {}),
 
             readings_stored:
-                vitalsResult.data?.readings_stored || 128
+                vitalsResult.data?.readings_stored ?? 0
         };
 
 
@@ -1015,15 +1052,21 @@ async function refreshData() {
 
         lastCrew = Array.isArray(crew) ? crew : [];
 
+        const astronautSelect = document.getElementById("astronautSelect");
+        if (astronautSelect && lastCrew.length) {
+            const selectedAstronaut = getState().astronaut;
+            astronautSelect.innerHTML = lastCrew.map(person => `
+                <option value="${escapeHTML(person.id)}">
+                    ${escapeHTML(person.role)} ${escapeHTML(person.name)}
+                </option>
+            `).join("");
+            astronautSelect.value = selectedAstronaut;
+        }
+
 
         /* STATUS */
 
-        lastStatus = extractData(statusResult) || {};
-
-        if (typeof lastStatus !== "object") {
-            lastStatus = {};
-        }
-
+        lastStatus = vitals?.health_status || {};
 
         /* ALERTS */
 
@@ -1104,6 +1147,27 @@ async function refreshData() {
 
     }
 
+}
+
+
+async function loadRadiationData() {
+
+    try {
+        const result = await getLatestRadiation();
+        const payload = result?.data;
+
+        lastRadiation = payload?.success
+            ? payload.data
+            : null;
+
+    } catch (error) {
+        console.warn("[AstroHealth] Radiation data unavailable:", error);
+        lastRadiation = null;
+    }
+
+    if (getState().route === "dashboard") {
+        renderDashboard();
+    }
 }
 
 
@@ -1262,19 +1326,9 @@ function setupControls() {
                 getState().delayMinutes
             );
 
-            if (result.isMock) {
-
-                showToast(
-                    "Delay mode enabled using simulation."
-                );
-
-            } else {
-
-                showToast(
-                    "Communication delay enabled."
-                );
-
-            }
+            showToast(
+                "Communication delay is a local UI setting; the backend does not expose a delay endpoint."
+            );
 
         } else {
 
@@ -1372,6 +1426,8 @@ async function initialize() {
         setupNavigation();
 
         await refreshData();
+
+        await loadRadiationData();
 
         startPolling();
 

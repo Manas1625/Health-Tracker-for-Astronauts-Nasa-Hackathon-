@@ -75,7 +75,7 @@ export function renderGroundReport(main, data, showToast) {
     const status = data.status || {};
     const alerts = Array.isArray(data.alerts) ? data.alerts : [];
 
-    const overall = normalizeSeverity(status.overall || "UNKNOWN");
+    const overall = normalizeSeverity(status.overall_status || "UNKNOWN");
 
     const reportTime = new Date();
     const reportDate = reportTime.toLocaleString();
@@ -84,9 +84,10 @@ export function renderGroundReport(main, data, showToast) {
         { label: "Heart Rate", key: "heart_rate", unit: "BPM" },
         { label: "Blood Oxygen", key: "spo2", unit: "%" },
         { label: "Body Temperature", key: "temperature", unit: "°C" },
-        { label: "Blood Pressure", key: "blood_pressure", unit: "mmHg" },
-        { label: "Blood Glucose", key: "glucose", unit: "mg/dL" },
-        { label: "Sleep", key: "sleep", unit: "hours" },
+        { label: "Systolic Pressure", key: "systolic", unit: "mmHg" },
+        { label: "Diastolic Pressure", key: "diastolic", unit: "mmHg" },
+        { label: "Blood Glucose", key: "blood_glucose", unit: "mg/dL" },
+        { label: "Sleep", key: "sleep_hours", unit: "hours" },
         { label: "Mood", key: "mood", unit: "" }
     ];
 

@@ -64,6 +64,25 @@ def health_check():
         "disclaimer": DISCLAIMER
 
     }), 200
+    
+@app.route("/api/crew", methods=["GET"])
+def get_crew():
+
+    crew = []
+
+    for astronaut_id, profile in ASTRONAUTS.items():
+
+        crew.append({
+            "id": astronaut_id,
+            "name": profile["name"],
+            "role": profile["role"],
+            "mission": profile["mission"]
+        })
+
+    return jsonify({
+        "success": True,
+        "data": crew
+    }), 200
 
 # --------------------------------------------------
 # LATEST VITALS

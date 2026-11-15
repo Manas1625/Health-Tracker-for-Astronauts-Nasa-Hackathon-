@@ -1,70 +1,71 @@
 /* =========================================
-   ASTROHEALTH - RADIATION DASHBOARD CARD
-   Simulated absorbed-dose rate shown as a normal vital-style card.
-   Thresholds are illustrative only (not medical or NASA limits).
+   ASTROHEALTH - NASA RADIATION DATA CARD
+   Displays the latest historical reading returned by the backend.
+   No synthetic dose values are generated in the frontend.
 ========================================= */
 
-// Illustrative baseline dose rate (mSv/day) for each mission environment
-const BASE_DOSE = {
-    spacecraft: 1.8,   // deep space: highest exposure
-    station: 0.7,      // low Earth orbit
-    rover: 0.5,
-    mars: 0.67
-};
+export function radiationCardHTML(reading) {
 
-const SCENARIO_FACTOR = { normal: 1, warning: 3, critical: 6 };
+    if (!reading) {
+        return `
+            <article class="vital-card radiation-card" data-indicator="radiation">
+                <div class="vital-card-top">
+                    <span class="vital-name">RADIATION</span>
+                    <span class="vital-icon">☢</span>
+                </div>
+                <div class="vital-reading">NO DATA</div>
+                <div class="vital-bottom">
+                    <span class="badge badge-cyan">UNAVAILABLE</span>
+                    <span class="trend-text">NASA OSDR RADLAB</span>
+                </div>
+            </article>
+        `;
+    }
 
-function statusFor(dose) {
-    if (dose >= 10) return "RED";
-    if (dose >= 5) return "ORANGE";
-    if (dose >= 2.5) return "YELLOW";
-    return "GREEN";
-}
+    const absorbed = reading.absorbed_dose_rate;
+    const equivalent = reading.dose_equivalent_rate;
+    const flux = reading.flux;
 
-export function getRadiationReading(environmentId, scenario) {
-    const base = BASE_DOSE[environmentId] ?? BASE_DOSE.spacecraft;
-    const factor = SCENARIO_FACTOR[scenario] ?? 1;
-    // gentle wobble so the value looks live, like the other simulated vitals
-    const wobble = 1 + Math.sin(Date.now() / 4000) * 0.04;
-    const dose = Number((base * factor * wobble).toFixed(2));
-    return { dose, status: statusFor(dose) };
-}
-
-export function radiationCardHTML(environmentId, scenario, helpers) {
-
-    const { badgeClass, getStatusSymbol } = helpers;
-    const { dose, status } = getRadiationReading(environmentId, scenario);
-
-    // gauge fill: 0 to 12 mSv/day maps to 0 to 100 percent
-    const fill = Math.min(100, Math.round((dose / 12) * 100));
+    const formatValue = value =>
+        value === null || value === undefined
+            ? "--"
+            : Number.isFinite(Number(value))
+                ? Number(value).toPrecision(5)
+                : String(value);
 
     return `
         <article class="vital-card radiation-card" data-indicator="radiation">
-
             <div class="vital-card-top">
                 <span class="vital-name">RADIATION</span>
                 <span class="vital-icon">☢</span>
             </div>
 
             <div class="vital-reading">
-                ${dose}
-                <small>mSv/day</small>
+                ${formatValue(absorbed)}
+                <small>absorbed dose rate</small>
             </div>
 
-            <div class="radiation-gauge ${"radiation-" + status.toLowerCase()}"
-                 role="img"
-                 aria-label="Simulated radiation dose rate ${dose} millisieverts per day, status ${status}">
-                <span style="width:${fill}%"></span>
+            <div class="trend-text">
+                Dose equivalent: ${formatValue(equivalent)}
+            </div>
+            <div class="trend-text">
+                Flux: ${formatValue(flux)}
             </div>
 
             <div class="vital-bottom">
-                <span class="badge ${badgeClass(status)}">
-                    ${getStatusSymbol(status)}
-                    ${status}
-                </span>
-                <span class="trend-text">SIMULATED</span>
+                <span class="badge badge-cyan">HISTORICAL DATA</span>
+                <span class="trend-text">${escapeHTML(reading.instrument_id || "NASA RADLAB")}</span>
             </div>
-
         </article>
     `;
+}
+
+function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
 }

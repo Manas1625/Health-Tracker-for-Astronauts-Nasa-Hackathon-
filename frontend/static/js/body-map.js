@@ -6,7 +6,7 @@ const SYSTEMS = {
         title: "Sleep & Neurobehavioral Health",
         description: "Tracks sleep duration and self-reported mood.",
         indicators: [
-            ["Sleep", "sleep", "hours"],
+            ["Sleep", "sleep_hours", "hours"],
             ["Mood", "mood", ""]
         ],
         position: "head"
@@ -18,7 +18,8 @@ const SYSTEMS = {
         description: "Monitors heart rate, blood pressure and blood oxygen.",
         indicators: [
             ["Heart Rate", "heart_rate", "BPM"],
-            ["Blood Pressure", "blood_pressure", "mmHg"],
+            ["Systolic Pressure", "systolic", "mmHg"],
+            ["Diastolic Pressure", "diastolic", "mmHg"],
             ["Blood Oxygen", "spo2", "%"]
         ],
         position: "chest"
@@ -39,7 +40,7 @@ const SYSTEMS = {
         title: "Metabolic System",
         description: "Tracks blood glucose levels.",
         indicators: [
-            ["Blood Glucose", "glucose", "mg/dL"]
+            ["Blood Glucose", "blood_glucose", "mg/dL"]
         ],
         position: "abdomen"
     },

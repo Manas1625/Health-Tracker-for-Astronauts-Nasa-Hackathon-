@@ -2,7 +2,7 @@
 import { getMockData, setMockScenario } from "./mock.js";
 import { getState, setState } from "./state.js";
 
-const API_BASE = "";
+const API_BASE = "http://127.0.0.1:5001";
 
 let mockActive = false;
 
@@ -22,11 +22,11 @@ async function request(path, options = {}) {
             signal: AbortSignal.timeout(3500)
         });
 
-        if (!response.ok) {
+        const result = await response.json();
+
+        if (!response.ok && response.status !== 404) {
             throw new Error(`API error: ${response.status}`);
         }
-
-        const result = await response.json();
 
         mockActive = false;
         setState({ mockMode: false });
@@ -65,6 +65,10 @@ export async function getCrew() {
     return request("/api/crew");
 }
 
+export async function getLatestRadiation() {
+    return request("/api/radiation/latest");
+}
+
 export async function getStatus() {
     const { astronaut } = getState();
 
@@ -77,7 +81,7 @@ export async function getAlerts() {
     const { astronaut } = getState();
 
     return request(
-        `/api/alerts?astronaut=${encodeURIComponent(astronaut)}&state=open`
+        `/api/alerts?astronaut=${encodeURIComponent(astronaut)}&unacknowledged_only=true`
     );
 }
 
@@ -109,10 +113,13 @@ export async function setScenario(mode) {
 }
 
 export async function setDelay(minutes = 20) {
-    return request("/api/delay", {
-        method: "POST",
-        body: JSON.stringify({ minutes })
-    });
+    // The backend has no communication-delay endpoint.
+    // Keep this as a local UI preference without fabricating an API call.
+    return {
+        isMock: false,
+        localOnly: true,
+        minutes
+    };
 }
 
 export async function getBaseline() {
@@ -124,7 +131,7 @@ export async function getBaseline() {
 }
 
 export async function acknowledgeAlert(id) {
-    return request(`/api/alerts/${encodeURIComponent(id)}/ack`, {
+    return request(`/api/alerts/${encodeURIComponent(id)}/acknowledge`, {
         method: "POST"
     });
 }
